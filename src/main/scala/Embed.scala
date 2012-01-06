@@ -10,21 +10,28 @@ object Embed {
 			println(x.toString)
 		}
 	}
+	def createJsRuntime  = {
+		val cx = Context.enter
+		val sc = cx.initStandardObjects
+		ScriptableObject.putProperty(sc, "log", Context.javaToJS(new Log, sc))
+		new {
+			val context = cx
+			val scope = sc
+			def evaluate(str: String) { context.evaluateString(scope, str, "eval", 1, null)}
+			def getResult[T](str: String) = context.evaluateString(scope, str, "eval", 1, null).asInstanceOf[T]
+		}
+	}
 
 	def main(args: Array[String]) {
 		run()
 	}
 
 	def run() {
-		// set up teh js runtime
-		val context = Context.enter
-		val scope = context.initStandardObjects
-		ScriptableObject.putProperty(scope, "log", Context.javaToJS(new Log, scope))
+		val runtime = createJsRuntime
+		val context = runtime.context
+		val scope = runtime.scope
 
-		// create an object from js
-		val jsObj = context.evaluateString(scope, "jsX = {a: 'aval', b: 'bval', c: {aa: 'aa-val'}};jsX", "x", 1, null).asInstanceOf[ScriptableObject]
-		// in order to be accessable in the scripting engine, must "register" class
-		ScriptableObject.defineClass(scope, classOf[MultiValueObject]);
+		val jsObj = runtime.getResult[ScriptableObject]("jsX = {a: 'aval', b: 'bval', c: {aa: 'aa-val'}};jsX")
 
 		val converter = new ScriptableObjectUpdater(context,scope)
 		// replace the content of the js object
@@ -32,7 +39,8 @@ object Embed {
 		val cname = jsObj.get("obj", jsObj).asInstanceOf[Scriptable].getClassName()
 		println("type is ", cname)
 
-		context.evaluateString(scope, "log.write('updated jsObj is ' + jsX.toSource())", "x", 1, null)
+		runtime.evaluate("log.write('updated jsObj is ' + jsX.toSource())")
+		Context.exit 
 	}
 }
 
