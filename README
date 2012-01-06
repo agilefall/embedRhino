@@ -1,0 +1,3 @@
+embedRhino
+
+Simple sbt .11 project to embed rhino in a scala environment.  Used to quickly see how objects work on both sides of the rhino/java wall. 
